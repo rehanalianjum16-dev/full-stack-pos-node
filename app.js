@@ -21,7 +21,11 @@ const userRoutes = require("./routes/users");
 
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: [
+      "http://localhost:3000", 
+      "http://192.168.100.97:3000"
+      // You can add more network IPs here if they change
+    ],
     credentials: true,
   }),
 );

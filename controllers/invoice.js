@@ -1,4 +1,6 @@
 const invoiceService = require("../services/invoiceService");
+const Product = require("../models/Product");
+const Invoice = require("../models/invoice");
 
 const createInvoice = async (req, res) => {
   try {
@@ -61,7 +63,38 @@ const getSingleInvoice = async (req, res) => {
 
 const updateInvoice = async (req, res) => {
   try {
-    const invoice = await invoiceService.updateById(req.params.id, req.body);
+    const { id } = req.params;
+
+    // 1. Purani invoice nikal kar uska stock wapas ADD karein
+    const oldInvoice = await Invoice.findById(id);
+    if (oldInvoice && oldInvoice.items) {
+      for (const item of oldInvoice.items) {
+        let prodId = item.product || item.productId || item.product_id;
+        if (prodId && typeof prodId === "object" && prodId._id) prodId = prodId._id; // 💡 Agar product array object ho
+        if (prodId) prodId = prodId.toString();
+        
+        if (prodId && /^[a-fA-F0-9]{24}$/.test(prodId)) { // Valid ObjectId regex
+          console.log("Reverting Old Stock (+):", prodId, "Qty:", item.quantity);
+          await Product.findByIdAndUpdate(prodId, { $inc: { stock: Number(item.quantity), stockQuantity: Number(item.quantity) } });
+        }
+      }
+    }
+
+    // 2. Nayi updated invoice ka stock MINUS karein
+    if (req.body.items) {
+      for (const item of req.body.items) {
+        let prodId = item.product || item.productId || item.product_id;
+        if (prodId && typeof prodId === "object" && prodId._id) prodId = prodId._id;
+        if (prodId) prodId = prodId.toString();
+
+        if (prodId && /^[a-fA-F0-9]{24}$/.test(prodId)) {
+          console.log("Deducting New Stock (-):", prodId, "Qty:", item.quantity);
+          await Product.findByIdAndUpdate(prodId, { $inc: { stock: -Number(item.quantity), stockQuantity: -Number(item.quantity) } });
+        }
+      }
+    }
+
+    const invoice = await invoiceService.updateById(id, req.body);
     res.status(200).json({
       success: true,
       message: "Invoice updated successfully",
@@ -80,7 +113,23 @@ const updateInvoice = async (req, res) => {
 
 const deleteInvoice = async (req, res) => {
   try {
-    const invoice = await invoiceService.deleteById(req.params.id);
+    const { id } = req.params;
+    
+    // 1. Delete hone se pehle purani invoice ka stock wapas ADD karein
+    const oldInvoice = await Invoice.findById(id);
+    if (oldInvoice && oldInvoice.items) {
+      for (const item of oldInvoice.items) {
+        let prodId = item.product || item.productId || item.product_id;
+        if (prodId && typeof prodId === "object" && prodId._id) prodId = prodId._id;
+        if (prodId) prodId = prodId.toString();
+
+        if (prodId && /^[a-fA-F0-9]{24}$/.test(prodId)) {
+          await Product.findByIdAndUpdate(prodId, { $inc: { stock: Number(item.quantity), stockQuantity: Number(item.quantity) } });
+        }
+      }
+    }
+
+    const invoice = await invoiceService.deleteById(id);
     res.status(200).json({
       success: true,
       message: "Invoice deleted successfully",
@@ -100,7 +149,6 @@ const deleteInvoice = async (req, res) => {
 
 const getMonthlySalesSummary = async (req, res) => {
   try {
-    const Invoice = require("../models/invoice");
     const result = await Invoice.aggregate([
       { $match: { status: "paid" } },
       {
@@ -149,7 +197,6 @@ const getMonthlySalesSummary = async (req, res) => {
 
 const getTotalSales = async (req, res) => {
   try {
-    const Invoice = require("../models/invoice");
     const result = await Invoice.aggregate([
       { $match: { status: "paid" } },
       {

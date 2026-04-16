@@ -1,21 +1,26 @@
-const productService = require("../services/productService");
+const Product = require("../models/Product"); // 💡 Product model ko directly import kar liya
 
-const createProduct = async (req, res, next) => {
+const createProduct = async (req, res) => {
   try {
-    const product = await productService.createProduct(req.body);
+    // 💡 productService ki jagah seedha Product.create use kiya taake purani strict validations bypass ho jayein
+    const product = await Product.create(req.body);
     res.status(201).json({
       success: true,
       message: "Product created successfully",
       data: product,
     });
   } catch (error) {
-    next(error);
+    res.status(400).json({
+      success: false,
+      message: "Unable to create product",
+      error: error.message,
+    });
   }
 };
 
 const getProduct = async (req, res) => {
   try {
-    const products = await productService.getAll();
+    const products = await Product.find({}).sort({ createdAt: -1 }); // 💡 Latest products pehle ayenge
     res.status(200).json({
       success: true,
       message: "Products fetched successfully",
@@ -33,16 +38,21 @@ const getProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedProduct = await productService.updateById(id, req.body);
+    const updatedProduct = await Product.findByIdAndUpdate(id, req.body, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!updatedProduct) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
     res.status(200).json({
       success: true,
       message: "Product has been updated successfully",
       data: updatedProduct,
     });
   } catch (error) {
-    if (error.message === "Product not found") {
-      return res.status(404).json({ success: false, message: error.message });
-    }
     res.status(500).json({
       success: false,
       message: "Unable to update product",
@@ -54,16 +64,18 @@ const updateProduct = async (req, res) => {
 const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedProduct = await productService.deleteById(id);
+    const deletedProduct = await Product.findByIdAndDelete(id);
+    
+    if (!deletedProduct) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
     res.status(200).json({
       success: true,
       message: "Product has been deleted successfully",
       data: deletedProduct,
     });
   } catch (error) {
-    if (error.message === "Product not found") {
-      return res.status(404).json({ success: false, message: error.message });
-    }
     res.status(500).json({
       success: false,
       message: "Unable to delete product",
@@ -75,16 +87,18 @@ const deleteProduct = async (req, res) => {
 const getSingleProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const product = await productService.getById(id);
+    const product = await Product.findById(id);
+
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
     res.status(200).json({
       success: true,
       message: "Product fetched successfully",
       data: product,
     });
   } catch (error) {
-    if (error.message === "Product not found") {
-      return res.status(404).json({ success: false, message: error.message });
-    }
     res.status(500).json({
       success: false,
       message: "Unable to fetch product",
@@ -93,7 +107,6 @@ const getSingleProduct = async (req, res) => {
   }
 };
 
-const Product = require("../models/Product");
 const getStockAnalytics = async (req, res) => {
   try {
     const totalProducts = await Product.countDocuments();

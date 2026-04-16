@@ -13,33 +13,38 @@ const productSchema = new mongoose.Schema(
 
     description: {
       type: String,
-      required: [true, "Please provide description"],
-      maxlength: 150,
-      minlength: 3,
       trim: true,
+      default: "", // 💡 Frontend se empty string aane par error na de
     },
 
     category: {
       type: String,
       enum: [
-        "mobile",
-        "laptop",
-        "headphones",
-        "tablet",
-        "televison",
-        "camera",
-        "smartwatch",
-        "accessories",
-        "home-appliances",
+        "tablets",
+        "syrups",
+        "injections",
+        "capsules",
+        "creams",
+        "surgical",
+        "others",
       ],
       required: [true, "Please provide a category"],
       trim: true,
     },
 
+    // 💡 Frontend se aane wali pharmacy ki nayi fields
+    packing: { type: String, default: "N/A" },
+    batchNo: { type: String, default: "N/A" },
+    retailPrice: { type: Number, default: 0, min: 0 },
+    tradePrice: { type: Number, default: 0, min: 0 },
+    discountPercentage: { type: Number, default: 0, min: 0, max: 100 },
+    stockQuantity: { type: Number, default: 0, min: 0 },
+    image: { type: String, default: "" },
+    expiryDate: { type: Date },
+
     price: {
       type: Number,
-      required: [true, "Product price is required"],
-      min: [0, "Price cannot be negative"],
+      default: 0,
     },
 
     supplier: {
@@ -71,6 +76,8 @@ const productSchema = new mongoose.Schema(
 );
 
 productSchema.pre("save", function () {
+  // 💡 Agar frontend se stockQuantity aa raha hai toh usay stock field mein bhi sync kar dein
+  this.stock = this.stockQuantity || this.stock || 0;
   this.isInStock = this.stock > 0;
 });
 

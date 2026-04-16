@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const Invoice = require("../models/invoice");
 const Inventory = require("../models/inventory");
+const Product = require("../models/Product");
 const User = require("../models/User");
 const salesService = require("./salesService");
 
@@ -36,17 +37,23 @@ async function createInvoice(data, invoiceNumber = null, createdBy = null) {
 
   // 1️⃣ STOCK CHECK
   for (const item of items) {
-    if (!mongoose.Types.ObjectId.isValid(item.product)) {
-      throw new Error("Invalid product ID sent");
-    }
-    const product = await Inventory.findById(item.product);
+    // 💡 Sirf tab check karein agar product ki ID mojood ho (Custom products bypass ho jayenge)
+    if (item.product) {
+      if (!mongoose.Types.ObjectId.isValid(item.product)) {
+        throw new Error("Invalid product ID sent");
+      }
+      // 💡 Ab yeh Inventory ke bajaye Product model mein check karega!
+      const product = await Product.findById(item.product);
 
-    if (!product) {
-      throw new Error("Product not found");
-    }
+      if (!product) {
+        throw new Error("Product not found");
+      }
 
-    if (product.quantity < item.quantity) {
-      throw new Error(`Insufficient stock for product: ${product.productName}`);
+      // 💡 Fix: Checking stockQuantity as well, kyunke Mongoose mein stockQuantity ke naam se save hai
+      const availableStock = product.stockQuantity !== undefined ? product.stockQuantity : (product.stock || 0);
+      if (availableStock < item.quantity) {
+        throw new Error(`Insufficient stock for product: ${product.name}`);
+      }
     }
   }
 
@@ -62,9 +69,12 @@ async function createInvoice(data, invoiceNumber = null, createdBy = null) {
 
   // 3️⃣ DEDUCT STOCK
   for (const item of items) {
-    await Inventory.findByIdAndUpdate(item.product, {
-      $inc: { quantity: -item.quantity },
-    });
+    // 💡 Sirf inventory walay products ka stock minus karein
+    if (item.product) {
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: { stockQuantity: -item.quantity }, // 💡 Fix: Ab sirf asal stockQuantity hi minus hogi, false negative create nahi hoga
+      });
+    }
   }
 
   // 4️⃣ CREATE SALES
