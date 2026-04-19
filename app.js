@@ -19,6 +19,7 @@ const stockRoutes = require("./routes/stockRoutes");
 const salesRoutes = require("./routes/sales");
 const userRoutes = require("./routes/users");
 const purchaseRoutes = require("./routes/purchase");
+const reportsRoutes = require("./routes/reports");
 
 app.use(
   cors({
@@ -32,12 +33,10 @@ app.use(
 );
 app.use(express.json());
 
-app.use("/api/v1/stock", stockRoutes);
-
 app.use(
   rateLimiter({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 5000, // 💡 Development ke liye limit barha di gayi hai taake 429 error na aaye
   }),
 );
 
@@ -56,6 +55,7 @@ app.use("/api/v1/sales", salesRoutes);
 app.use("/api/v1/stock", stockRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/purchase", purchaseRoutes);
+app.use("/api/v1/reports", reportsRoutes);
 // error handlers
 const notFoundMiddleware = require("./middleware/not-found");
 const errorHandlerMiddleware = require("./middleware/error-handler");
