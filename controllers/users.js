@@ -1,6 +1,24 @@
 const { StatusCodes } = require("http-status-codes");
 const User = require("../models/User");
 
+const getAllUsers = async (req, res) => {
+  try {
+    // Sab users ko fetch karein, lakin password ka field exclude kar dein ("-password")
+    const users = await User.find({}).select("-password").sort({ createdAt: -1 });
+    res.status(StatusCodes.OK).json({
+      success: true,
+      count: users.length,
+      data: users,
+    });
+  } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Unable to fetch users",
+      error: error.message,
+    });
+  }
+};
+
 const createUser = async (req, res) => {
   const { firstName, lastName, email, password, role } = req.body;
   if (!firstName || !lastName || !email || !password) {
@@ -72,6 +90,7 @@ const deleteUser = async (req, res) => {
 };
 
 module.exports = {
+  getAllUsers,
   createUser,
   updateUser,
   deleteUser,
